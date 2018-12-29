@@ -1,4 +1,4 @@
-# Gmail Filter Generator Library
+# Gmail Filter Generator Library [![Build Status](https://travis-ci.org/torpedro/gmail-filter-lib.svg?branch=master)](https://travis-ci.org/torpedro/gmail-filter-lib)
 
 Small library to allow generating complex Gmail Filter rules from code.
 
