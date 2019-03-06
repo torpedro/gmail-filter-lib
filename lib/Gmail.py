@@ -15,8 +15,7 @@ class Gmail(object):
 
     self.root = ET.Element("feed", **feed_kwargs)
 
-
-  def print_xml(self):
+  def get_xml(self):
     def prettify(elem):
       from xml.dom import minidom
       rough_string = ET.tostring(elem, 'utf-8')
@@ -24,7 +23,10 @@ class Gmail(object):
       return reparsed.toprettyxml(indent="  ")
 
     tree = ET.ElementTree(self.root)
-    print prettify(self.root)
+    return prettify(self.root)
+
+  def print_xml(self):
+    print get_xml(self)
 
   def add_label(self, label, rule):
     entry = ET.SubElement(self.root, "entry")
