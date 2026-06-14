@@ -105,4 +105,7 @@ venv.bak/
 .mypy_cache/
 
 my-filters.py
-mailFilters.xml
+*.yml
+*.xml
+*.json
+oauth_token
