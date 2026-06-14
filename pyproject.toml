@@ -1,0 +1,19 @@
+[project]
+name = "gmail-filter-lib"
+version = "0.1.0"
+description = "Small library for generating Gmail filter XML from Python code."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["lib"]
+
+[tool.uv]
+package = false

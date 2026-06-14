@@ -47,3 +47,23 @@ gmail.print_xml()
   </entry>
 </feed>
 ```
+
+## Tests
+
+This project uses expect-style tests for generated filter XML. Test scenarios
+and their expected output are inlined in `tests/test_filter_outputs.py`.
+
+Run the tests with:
+
+```sh
+uv run pytest
+```
+
+If the generated XML changes, the test failure prints a unified diff between
+the checked-in expected output and the new output.
+
+When a change is intentional, rewrite the inline expected output with:
+
+```sh
+uv run pytest --accept
+```

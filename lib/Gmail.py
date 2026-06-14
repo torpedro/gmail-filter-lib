@@ -26,7 +26,7 @@ class Gmail(object):
     return prettify(self.root)
 
   def print_xml(self):
-    print self.get_xml()
+    print(self.get_xml())
 
   def add_label(self, label, rule):
     entry = ET.SubElement(self.root, "entry")
@@ -37,4 +37,3 @@ class Gmail(object):
 
 def create():
   return Gmail()
-

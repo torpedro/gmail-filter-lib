@@ -74,6 +74,7 @@ target/
 
 # pyenv
 .python-version
+!.python-version
 
 # celery beat schedule file
 celerybeat-schedule
@@ -104,4 +105,4 @@ venv.bak/
 .mypy_cache/
 
 my-filters.py
-my-filters.xml
+mailFilters.xml
