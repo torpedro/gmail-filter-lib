@@ -1,7 +1,7 @@
-import Cli
-import Expr
-import FilterConfig
-import Gmail
+import cli
+import expr
+import filter_config
+import gmail
 from fastapi.testclient import TestClient
 
 from expect import assert_matches_expected
@@ -32,8 +32,8 @@ class FakeUrlopen(object):
 
 
 def test_simple_single_rule_output(request):
-  gmail = Gmail.create()
-  gmail.add_label("Travel", Expr.ffrom("booking.com"))
+  filters = gmail.create()
+  filters.add_label("Travel", expr.ffrom("booking.com"))
 
   assert_matches_expected(
     request,
@@ -48,30 +48,30 @@ def test_simple_single_rule_output(request):
       </entry>
     </feed>
     """,
-    gmail.get_xml(),
+    filters.get_xml(),
   )
 
 
 def test_complex_rules_output(request):
-  gmail = Gmail.create()
+  filters = gmail.create()
 
-  travel = Expr.oor([
-    Expr.ffrom("booking.com"),
-    Expr.ffrom("trivago.com"),
+  travel = expr.oor([
+    expr.ffrom("booking.com"),
+    expr.ffrom("trivago.com"),
   ])
-  shopping = Expr.oor([
-    Expr.ffrom("amazon.com"),
-    Expr.ffrom("ebay.com"),
+  shopping = expr.oor([
+    expr.ffrom("amazon.com"),
+    expr.ffrom("ebay.com"),
   ])
-  receipt = Expr.aand([
-    Expr.tto("me"),
-    Expr.ffrom("paypal.com"),
-    Expr.ssubject("receipt"),
+  receipt = expr.aand([
+    expr.tto("me"),
+    expr.ffrom("paypal.com"),
+    expr.ssubject("receipt"),
   ])
 
-  gmail.add_label("Travel", travel)
-  gmail.add_label("Shopping", shopping)
-  gmail.add_label("Receipt", receipt)
+  filters.add_label("Travel", travel)
+  filters.add_label("Shopping", shopping)
+  filters.add_label("Receipt", receipt)
 
   assert_matches_expected(
     request,
@@ -96,18 +96,18 @@ def test_complex_rules_output(request):
       </entry>
     </feed>
     """,
-    gmail.get_xml(),
+    filters.get_xml(),
   )
 
 
 def test_quoted_terms_output(request):
-  gmail = Gmail.create()
+  filters = gmail.create()
 
-  gmail.add_label(
+  filters.add_label(
     "Receipts",
-    Expr.aand([
-      Expr.ffrom("paypal.com"),
-      Expr.ssubject("Receipt for your payment"),
+    expr.aand([
+      expr.ffrom("paypal.com"),
+      expr.ssubject("Receipt for your payment"),
     ]),
   )
 
@@ -124,7 +124,7 @@ def test_quoted_terms_output(request):
       </entry>
     </feed>
     """,
-    gmail.get_xml(),
+    filters.get_xml(),
   )
 
 
@@ -188,7 +188,7 @@ def test_yaml_config_output(request):
         archive: true
         mark_read: true
     """,
-    FilterConfig.config_to_yaml_text(config),
+    filter_config.config_to_yaml_text(config),
   )
 
 
@@ -240,7 +240,7 @@ def test_yaml_to_xml_output(request):
       </entry>
     </feed>
     """,
-    FilterConfig.yaml_to_xml_text(yaml_text),
+    filter_config.yaml_to_xml_text(yaml_text),
   )
 
 
@@ -282,7 +282,7 @@ def test_legacy_boolean_yaml_keys_still_convert(request):
       </entry>
     </feed>
     """,
-    FilterConfig.yaml_to_xml_text(yaml_text),
+    filter_config.yaml_to_xml_text(yaml_text),
   )
 
 
@@ -323,7 +323,7 @@ def test_xml_to_yaml_output(request):
         archive: true
         mark_read: true
     """,
-    FilterConfig.xml_to_yaml_text(xml_text),
+    filter_config.xml_to_yaml_text(xml_text),
   )
 
 
@@ -353,7 +353,7 @@ def test_xml_to_yaml_parses_nested_brace_groups(request):
         - subject: Receipt for your Payment
         - subject: You have authorized a payment
     """,
-    FilterConfig.xml_to_yaml_text(xml_text),
+    filter_config.xml_to_yaml_text(xml_text),
   )
 
 
@@ -410,7 +410,7 @@ def test_api_list_json_to_yaml_output(request):
         - INBOX
         forward_to: person@example.com
     """,
-    FilterConfig.api_json_to_yaml_text(json_text),
+    filter_config.api_json_to_yaml_text(json_text),
   )
 
 
@@ -433,7 +433,7 @@ def test_api_list_json_file_converts_to_yaml_by_extension(request, tmp_path, cap
 """
   )
 
-  Cli.main(["convert", str(json_path)])
+  cli.main(["convert", str(json_path)])
 
   assert_matches_expected(
     request,
@@ -468,8 +468,8 @@ filters:
 """
   )
 
-  Cli.main(["convert", str(yaml_path), str(xml_path)])
-  Cli.main(["convert", str(xml_path), str(roundtrip_yaml_path)])
+  cli.main(["convert", str(yaml_path), str(xml_path)])
+  cli.main(["convert", str(xml_path), str(roundtrip_yaml_path)])
 
   assert_matches_expected(
     request,
@@ -513,7 +513,7 @@ filters:
 """
   )
 
-  Cli.main(["convert", str(yaml_path)])
+  cli.main(["convert", str(yaml_path)])
 
   assert_matches_expected(
     request,
@@ -534,9 +534,9 @@ filters:
 
 def test_api_list_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen('{"filter":[{"id":"filter-1"}]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
 
-  Cli.main(["api", "filters", "list", "--token", "access-token"])
+  cli.main(["api", "filters", "list", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "GET"
@@ -555,13 +555,13 @@ def test_api_list_prints_response_to_stdout(request, monkeypatch, capsys):
 
 def test_api_list_reads_token_from_local_oauth_token_file(tmp_path, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen('{"filter":[]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
   monkeypatch.delenv("GMAIL_FILTER_TOKEN", raising=False)
   monkeypatch.delenv("GOOGLE_ACCESS_TOKEN", raising=False)
   monkeypatch.chdir(tmp_path)
   (tmp_path / "oauth_token").write_text("file-token\n")
 
-  Cli.main(["api", "filters", "list"])
+  cli.main(["api", "filters", "list"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.headers["Authorization"] == "Bearer file-token"
@@ -570,11 +570,11 @@ def test_api_list_reads_token_from_local_oauth_token_file(tmp_path, monkeypatch,
 
 def test_api_token_argument_takes_precedence_over_local_oauth_token_file(tmp_path, monkeypatch):
   fake_urlopen = FakeUrlopen('{"filter":[]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
   monkeypatch.chdir(tmp_path)
   (tmp_path / "oauth_token").write_text("file-token\n")
 
-  Cli.main(["api", "filters", "list", "--token", "argument-token"])
+  cli.main(["api", "filters", "list", "--token", "argument-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.headers["Authorization"] == "Bearer argument-token"
@@ -582,9 +582,9 @@ def test_api_token_argument_takes_precedence_over_local_oauth_token_file(tmp_pat
 
 def test_api_get_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen('{"id":"filter-1","criteria":{"from":"booking.com"}}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
 
-  Cli.main(["api", "filters", "get", "filter-1", "--token", "access-token"])
+  cli.main(["api", "filters", "get", "filter-1", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "GET"
@@ -602,9 +602,9 @@ def test_api_get_prints_response_to_stdout(request, monkeypatch, capsys):
 
 def test_api_delete_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen("{}")
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
 
-  Cli.main(["api", "filters", "delete", "filter-1", "--token", "access-token"])
+  cli.main(["api", "filters", "delete", "filter-1", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "DELETE"
@@ -635,9 +635,9 @@ def test_api_create_posts_json_and_prints_response(request, tmp_path, monkeypatc
   )
 
   fake_urlopen = FakeUrlopen('{"id":"filter-1"}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
 
-  Cli.main(["api", "filters", "create", str(json_path), "--user", "person@example.com", "--token", "access-token"])
+  cli.main(["api", "filters", "create", str(json_path), "--user", "person@example.com", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "POST"
@@ -666,9 +666,9 @@ def test_api_create_posts_json_and_prints_response(request, tmp_path, monkeypatc
 
 def test_api_labels_list_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen('{"labels":[{"id":"Label_123","name":"Travel"}]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
 
-  Cli.main(["api", "labels", "list", "--token", "access-token"])
+  cli.main(["api", "labels", "list", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "GET"
@@ -696,9 +696,9 @@ def test_api_labels_patch_posts_json_and_prints_response(request, tmp_path, monk
   )
 
   fake_urlopen = FakeUrlopen('{"id":"Label_123","name":"Trips"}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
 
-  Cli.main(["api", "labels", "patch", "Label_123", str(json_path), "--token", "access-token"])
+  cli.main(["api", "labels", "patch", "Label_123", str(json_path), "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "PATCH"
@@ -725,7 +725,7 @@ def test_api_labels_patch_posts_json_and_prints_response(request, tmp_path, monk
 
 
 def test_editor_serves_static_page(request):
-  app = FilterConfig.create_editor_app("me", "access-token")
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.get("/")
@@ -760,7 +760,7 @@ def test_editor_serves_static_page(request):
 
 
 def test_editor_static_javascript_is_loaded(request):
-  app = FilterConfig.create_editor_app("me", "access-token")
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.get("/static/app.js")
@@ -802,8 +802,8 @@ def test_editor_static_javascript_is_loaded(request):
 
 def test_editor_api_filters_uses_gmail_list(request, monkeypatch):
   fake_urlopen = FakeUrlopen('{"filter":[{"id":"filter-1"}]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
-  app = FilterConfig.create_editor_app("me", "access-token")
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.get("/api/filters")
@@ -818,8 +818,8 @@ def test_editor_api_filters_uses_gmail_list(request, monkeypatch):
 
 def test_editor_api_token_can_be_updated_for_later_calls(monkeypatch):
   fake_urlopen = FakeUrlopen('{"filter":[]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
-  app = FilterConfig.create_editor_app("me", "old-token")
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
+  app = filter_config.create_editor_app("me", "old-token")
   client = TestClient(app)
 
   token_response = client.get("/api/auth/token")
@@ -835,7 +835,7 @@ def test_editor_api_token_can_be_updated_for_later_calls(monkeypatch):
 
 
 def test_editor_api_match_parse_returns_yaml(request):
-  app = FilterConfig.create_editor_app("me", "access-token")
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.post("/api/match/parse", json={"query": "{from:booking.com from:trivago.com}"})
@@ -854,7 +854,7 @@ def test_editor_api_match_parse_returns_yaml(request):
 
 
 def test_editor_api_match_parse_accepts_criteria_object(request):
-  app = FilterConfig.create_editor_app("me", "access-token")
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.post("/api/match/parse", json={"criteria": {"from": "dexters.co.uk"}})
@@ -871,7 +871,7 @@ def test_editor_api_match_parse_accepts_criteria_object(request):
 
 
 def test_editor_api_match_render_returns_query(request):
-  app = FilterConfig.create_editor_app("me", "access-token")
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.post(
@@ -896,7 +896,7 @@ def test_editor_api_match_render_returns_query(request):
 
 
 def test_editor_api_match_render_returns_direct_criteria():
-  app = FilterConfig.create_editor_app("me", "access-token")
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.post("/api/match/render", json={"yaml": "from: dexters.co.uk\n"})
@@ -912,8 +912,8 @@ def test_editor_api_match_render_returns_direct_criteria():
 
 def test_editor_api_filter_create_posts_filter_json(request, monkeypatch):
   fake_urlopen = FakeUrlopen('{"id":"new-filter"}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
-  app = FilterConfig.create_editor_app("me", "access-token")
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.post(
@@ -943,8 +943,8 @@ def test_editor_api_filter_create_posts_filter_json(request, monkeypatch):
 
 def test_editor_api_filter_replace_creates_then_deletes_old_filter(request, monkeypatch):
   fake_urlopen = FakeUrlopen('{"id":"new-filter"}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
-  app = FilterConfig.create_editor_app("me", "access-token")
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.put(
@@ -977,8 +977,8 @@ def test_editor_api_filter_replace_creates_then_deletes_old_filter(request, monk
 
 def test_editor_api_labels_uses_gmail_labels_list(monkeypatch):
   fake_urlopen = FakeUrlopen('{"labels":[{"id":"Label_123","name":"Travel"}]}')
-  monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
-  app = FilterConfig.create_editor_app("me", "access-token")
+  monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
+  app = filter_config.create_editor_app("me", "access-token")
   client = TestClient(app)
 
   response = client.get("/api/labels")

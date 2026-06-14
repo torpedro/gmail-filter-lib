@@ -5,7 +5,7 @@ import sys
 
 import uvicorn
 
-import FilterConfig
+import filter_config
 
 
 def main(argv=None):
@@ -45,11 +45,11 @@ def _convert_main(argv, prog):
     input_text = input_file.read()
 
   if source_format == "xml" and target_format == "yaml":
-    output_text = FilterConfig.xml_to_yaml_text(input_text)
+    output_text = filter_config.xml_to_yaml_text(input_text)
   elif source_format == "json" and target_format == "yaml":
-    output_text = FilterConfig.api_json_to_yaml_text(input_text)
+    output_text = filter_config.api_json_to_yaml_text(input_text)
   elif source_format == "yaml" and target_format == "xml":
-    output_text = FilterConfig.yaml_to_xml_text(input_text)
+    output_text = filter_config.yaml_to_xml_text(input_text)
   else:
     raise SystemExit("Expected xml/json -> yaml or yaml -> xml conversion")
 
@@ -120,35 +120,35 @@ def _api_main(argv, prog):
 
 
 def _handle_filter_api_command(args, token):
-  filter_base_path = "/users/%s/settings/filters" % FilterConfig._quote_path(args.user)
+  filter_base_path = "/users/%s/settings/filters" % filter_config._quote_path(args.user)
 
   if args.filter_command == "list":
-    return FilterConfig.gmail_api_request("GET", filter_base_path, token)
+    return filter_config.gmail_api_request("GET", filter_base_path, token)
   if args.filter_command == "get":
-    return FilterConfig.gmail_api_request("GET", "%s/%s" % (filter_base_path, FilterConfig._quote_path(args.id)), token)
+    return filter_config.gmail_api_request("GET", "%s/%s" % (filter_base_path, filter_config._quote_path(args.id)), token)
   if args.filter_command == "delete":
-    return FilterConfig.gmail_api_request("DELETE", "%s/%s" % (filter_base_path, FilterConfig._quote_path(args.id)), token)
+    return filter_config.gmail_api_request("DELETE", "%s/%s" % (filter_base_path, filter_config._quote_path(args.id)), token)
   if args.filter_command == "create":
-    return FilterConfig.gmail_api_request("POST", filter_base_path, token, _read_api_json_body(args.json_file))
+    return filter_config.gmail_api_request("POST", filter_base_path, token, _read_api_json_body(args.json_file))
 
   raise SystemExit("Unknown filter API command: %s" % args.filter_command)
 
 
 def _handle_label_api_command(args, token):
-  label_base_path = "/users/%s/labels" % FilterConfig._quote_path(args.user)
+  label_base_path = "/users/%s/labels" % filter_config._quote_path(args.user)
 
   if args.label_command == "list":
-    return FilterConfig.gmail_api_request("GET", label_base_path, token)
+    return filter_config.gmail_api_request("GET", label_base_path, token)
   if args.label_command == "get":
-    return FilterConfig.gmail_api_request("GET", "%s/%s" % (label_base_path, FilterConfig._quote_path(args.id)), token)
+    return filter_config.gmail_api_request("GET", "%s/%s" % (label_base_path, filter_config._quote_path(args.id)), token)
   if args.label_command == "delete":
-    return FilterConfig.gmail_api_request("DELETE", "%s/%s" % (label_base_path, FilterConfig._quote_path(args.id)), token)
+    return filter_config.gmail_api_request("DELETE", "%s/%s" % (label_base_path, filter_config._quote_path(args.id)), token)
   if args.label_command == "create":
-    return FilterConfig.gmail_api_request("POST", label_base_path, token, _read_api_json_body(args.json_file))
+    return filter_config.gmail_api_request("POST", label_base_path, token, _read_api_json_body(args.json_file))
   if args.label_command == "patch":
-    return FilterConfig.gmail_api_request("PATCH", "%s/%s" % (label_base_path, FilterConfig._quote_path(args.id)), token, _read_api_json_body(args.json_file))
+    return filter_config.gmail_api_request("PATCH", "%s/%s" % (label_base_path, filter_config._quote_path(args.id)), token, _read_api_json_body(args.json_file))
   if args.label_command == "update":
-    return FilterConfig.gmail_api_request("PUT", "%s/%s" % (label_base_path, FilterConfig._quote_path(args.id)), token, _read_api_json_body(args.json_file))
+    return filter_config.gmail_api_request("PUT", "%s/%s" % (label_base_path, filter_config._quote_path(args.id)), token, _read_api_json_body(args.json_file))
 
   raise SystemExit("Unknown label API command: %s" % args.label_command)
 
@@ -163,7 +163,7 @@ def _editor_main(argv, prog):
   token = _load_access_token(args)
 
   print("Serving Gmail filter editor at http://%s:%s/" % (args.host, args.port))
-  uvicorn.run(FilterConfig.create_editor_app(args.user, token), host=args.host, port=args.port)
+  uvicorn.run(filter_config.create_editor_app(args.user, token), host=args.host, port=args.port)
 
 
 def _load_access_token(args):

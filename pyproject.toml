@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-gmail-filter = "Cli:main"
+gmail-filter = "cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -19,7 +19,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-py-modules = ["Cli", "Expr", "FilterConfig", "Gmail"]
+py-modules = ["cli", "expr", "filter_config", "gmail"]
 
 [dependency-groups]
 dev = [

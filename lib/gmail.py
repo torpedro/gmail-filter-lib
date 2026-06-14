@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-import Expr
+import expr
 
 xmlns = "http://www.w3.org/2005/Atom"
 xmlns_apps = "http://schemas.google.com/apps/2006" 
@@ -37,3 +37,6 @@ class Gmail(object):
 
 def create():
   return Gmail()
+
+
+Expr = expr

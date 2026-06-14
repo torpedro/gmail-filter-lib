@@ -9,20 +9,21 @@ The scripts will generate an XML file that can be uploaded in the Gmail UI in th
 ## Example
 
 ```python
-import Gmail, Expr
+import expr
+import gmail
 
-gmail = Gmail.create()
+filters = gmail.create()
 
-travel = Expr.oor([ Expr.ffrom("booking.com"), Expr.ffrom("trivago.com") ])
+travel = expr.oor([ expr.ffrom("booking.com"), expr.ffrom("trivago.com") ])
 
-shopping = Expr.oor([ Expr.ffrom("amazon.com"), Expr.ffrom("ebay.com") ])
+shopping = expr.oor([ expr.ffrom("amazon.com"), expr.ffrom("ebay.com") ])
 
-receipt = Expr.aand([ Expr.tto("me"), Expr.ffrom("paypal.com"), Expr.ssubject("receipt") ])
+receipt = expr.aand([ expr.tto("me"), expr.ffrom("paypal.com"), expr.ssubject("receipt") ])
 
-gmail.add_label("Travel", travel)
-gmail.add_label("Shopping", shopping)
-gmail.add_label("Receipt", receipt)
-gmail.print_xml()
+filters.add_label("Travel", travel)
+filters.add_label("Shopping", shopping)
+filters.add_label("Receipt", receipt)
+filters.print_xml()
 ```
 
 .. and the generated xml:

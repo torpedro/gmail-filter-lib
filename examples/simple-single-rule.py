@@ -3,10 +3,10 @@ import sys
 sys.path.append('../lib')
 sys.path.append('./lib')
 
-import Gmail
+import gmail
 
-gmail = Gmail.create()
-travel = Gmail.Expr.ffrom("booking.com")
+filters = gmail.create()
+travel = gmail.expr.ffrom("booking.com")
 
-gmail.add_label("Travel", travel)
-gmail.print_xml()
+filters.add_label("Travel", travel)
+filters.print_xml()
