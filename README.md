@@ -95,17 +95,17 @@ Unknown or less common Gmail XML properties can be preserved under
 Convert between formats with:
 
 ```sh
-uv run python scripts/gmail-filter-convert.py convert filters.xml filters.yaml
-uv run python scripts/gmail-filter-convert.py convert filters.json filters.yaml
-uv run python scripts/gmail-filter-convert.py convert filters.yaml filters.xml
+uv run gmail-filter convert filters.xml filters.yaml
+uv run gmail-filter convert filters.json filters.yaml
+uv run gmail-filter convert filters.yaml filters.xml
 ```
 
 If the output path is omitted, the converted result is printed to stdout:
 
 ```sh
-uv run python scripts/gmail-filter-convert.py convert filters.yaml
-uv run python scripts/gmail-filter-convert.py convert filters.xml
-uv run python scripts/gmail-filter-convert.py convert filters.json
+uv run gmail-filter convert filters.yaml
+uv run gmail-filter convert filters.xml
+uv run gmail-filter convert filters.json
 ```
 
 `filters.json` is the raw response from `api filters list`. It is converted into the
@@ -132,16 +132,16 @@ Pass an OAuth access token with `--token`, or set `GMAIL_FILTER_TOKEN` or
 `oauth_token` file.
 
 ```sh
-uv run python scripts/gmail-filter-convert.py api filters list --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api filters get FILTER_ID --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api filters delete FILTER_ID --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api filters create filter.json --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api labels list --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api labels get LABEL_ID --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api labels create label.json --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api labels patch LABEL_ID label.json --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api labels update LABEL_ID label.json --token "$TOKEN"
-uv run python scripts/gmail-filter-convert.py api labels delete LABEL_ID --token "$TOKEN"
+uv run gmail-filter api filters list --token "$TOKEN"
+uv run gmail-filter api filters get FILTER_ID --token "$TOKEN"
+uv run gmail-filter api filters delete FILTER_ID --token "$TOKEN"
+uv run gmail-filter api filters create filter.json --token "$TOKEN"
+uv run gmail-filter api labels list --token "$TOKEN"
+uv run gmail-filter api labels get LABEL_ID --token "$TOKEN"
+uv run gmail-filter api labels create label.json --token "$TOKEN"
+uv run gmail-filter api labels patch LABEL_ID label.json --token "$TOKEN"
+uv run gmail-filter api labels update LABEL_ID label.json --token "$TOKEN"
+uv run gmail-filter api labels delete LABEL_ID --token "$TOKEN"
 ```
 
 Use `--user` to target a specific Gmail user; it defaults to `me`.
@@ -149,7 +149,7 @@ Use `--user` to target a specific Gmail user; it defaults to `me`.
 Launch the local editor with:
 
 ```sh
-uv run python scripts/gmail-filter-convert.py editor
+uv run gmail-filter editor
 ```
 
 The editor serves a local web page and loads filters and labels through the
@@ -197,14 +197,14 @@ as `gmail.readonly`, `gmail.metadata`, `gmail.modify`, or `https://mail.google.c
 
 ```sh
 export GMAIL_FILTER_TOKEN="ya29..."
-uv run python scripts/gmail-filter-convert.py api filters list
+uv run gmail-filter api filters list
 ```
 
 Alternatively, save it in a local `oauth_token` file:
 
 ```sh
 printf '%s\n' "ya29..." > oauth_token
-uv run python scripts/gmail-filter-convert.py api filters list
+uv run gmail-filter api filters list
 ```
 
 Access tokens are short-lived, usually about an hour. For long-term use, create

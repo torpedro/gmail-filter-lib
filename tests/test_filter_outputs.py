@@ -1,3 +1,4 @@
+import Cli
 import Expr
 import FilterConfig
 import Gmail
@@ -432,7 +433,7 @@ def test_api_list_json_file_converts_to_yaml_by_extension(request, tmp_path, cap
 """
   )
 
-  FilterConfig.main(["convert", str(json_path)])
+  Cli.main(["convert", str(json_path)])
 
   assert_matches_expected(
     request,
@@ -467,8 +468,8 @@ filters:
 """
   )
 
-  FilterConfig.main(["convert", str(yaml_path), str(xml_path)])
-  FilterConfig.main(["convert", str(xml_path), str(roundtrip_yaml_path)])
+  Cli.main(["convert", str(yaml_path), str(xml_path)])
+  Cli.main(["convert", str(xml_path), str(roundtrip_yaml_path)])
 
   assert_matches_expected(
     request,
@@ -512,7 +513,7 @@ filters:
 """
   )
 
-  FilterConfig.main(["convert", str(yaml_path)])
+  Cli.main(["convert", str(yaml_path)])
 
   assert_matches_expected(
     request,
@@ -535,7 +536,7 @@ def test_api_list_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen('{"filter":[{"id":"filter-1"}]}')
   monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
 
-  FilterConfig.main(["api", "filters", "list", "--token", "access-token"])
+  Cli.main(["api", "filters", "list", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "GET"
@@ -560,7 +561,7 @@ def test_api_list_reads_token_from_local_oauth_token_file(tmp_path, monkeypatch,
   monkeypatch.chdir(tmp_path)
   (tmp_path / "oauth_token").write_text("file-token\n")
 
-  FilterConfig.main(["api", "filters", "list"])
+  Cli.main(["api", "filters", "list"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.headers["Authorization"] == "Bearer file-token"
@@ -573,7 +574,7 @@ def test_api_token_argument_takes_precedence_over_local_oauth_token_file(tmp_pat
   monkeypatch.chdir(tmp_path)
   (tmp_path / "oauth_token").write_text("file-token\n")
 
-  FilterConfig.main(["api", "filters", "list", "--token", "argument-token"])
+  Cli.main(["api", "filters", "list", "--token", "argument-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.headers["Authorization"] == "Bearer argument-token"
@@ -583,7 +584,7 @@ def test_api_get_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen('{"id":"filter-1","criteria":{"from":"booking.com"}}')
   monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
 
-  FilterConfig.main(["api", "filters", "get", "filter-1", "--token", "access-token"])
+  Cli.main(["api", "filters", "get", "filter-1", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "GET"
@@ -603,7 +604,7 @@ def test_api_delete_prints_response_to_stdout(request, monkeypatch, capsys):
   fake_urlopen = FakeUrlopen("{}")
   monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
 
-  FilterConfig.main(["api", "filters", "delete", "filter-1", "--token", "access-token"])
+  Cli.main(["api", "filters", "delete", "filter-1", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "DELETE"
@@ -636,7 +637,7 @@ def test_api_create_posts_json_and_prints_response(request, tmp_path, monkeypatc
   fake_urlopen = FakeUrlopen('{"id":"filter-1"}')
   monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
 
-  FilterConfig.main(["api", "filters", "create", str(json_path), "--user", "person@example.com", "--token", "access-token"])
+  Cli.main(["api", "filters", "create", str(json_path), "--user", "person@example.com", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "POST"
@@ -667,7 +668,7 @@ def test_api_labels_list_prints_response_to_stdout(request, monkeypatch, capsys)
   fake_urlopen = FakeUrlopen('{"labels":[{"id":"Label_123","name":"Travel"}]}')
   monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
 
-  FilterConfig.main(["api", "labels", "list", "--token", "access-token"])
+  Cli.main(["api", "labels", "list", "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "GET"
@@ -697,7 +698,7 @@ def test_api_labels_patch_posts_json_and_prints_response(request, tmp_path, monk
   fake_urlopen = FakeUrlopen('{"id":"Label_123","name":"Trips"}')
   monkeypatch.setattr(FilterConfig.urllib.request, "urlopen", fake_urlopen)
 
-  FilterConfig.main(["api", "labels", "patch", "Label_123", str(json_path), "--token", "access-token"])
+  Cli.main(["api", "labels", "patch", "Label_123", str(json_path), "--token", "access-token"])
 
   api_request = fake_urlopen.requests[0]
   assert api_request.get_method() == "PATCH"
