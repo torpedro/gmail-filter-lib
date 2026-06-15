@@ -1,52 +1,23 @@
 # Gmail Filter Generator Library [![Build Status](https://travis-ci.org/torpedro/gmail-filter-lib.svg?branch=master)](https://travis-ci.org/torpedro/gmail-filter-lib)
 
-Small library to allow generating complex Gmail Filter rules from code.
-
-See `examples/` to see how to use the library.
-
-The scripts will generate an XML file that can be uploaded in the Gmail UI in the settings for filters.
+Tools for converting, editing, and managing Gmail filters.
 
 ## Example
 
-```python
-import expr
-import gmail
-
-filters = gmail.create()
-
-travel = expr.oor([ expr.ffrom("booking.com"), expr.ffrom("trivago.com") ])
-
-shopping = expr.oor([ expr.ffrom("amazon.com"), expr.ffrom("ebay.com") ])
-
-receipt = expr.aand([ expr.tto("me"), expr.ffrom("paypal.com"), expr.ssubject("receipt") ])
-
-filters.add_label("Travel", travel)
-filters.add_label("Shopping", shopping)
-filters.add_label("Receipt", receipt)
-filters.print_xml()
-```
-
-.. and the generated xml:
-
-```xml
-<?xml version="1.0" ?>
-<feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">
-  <entry>
-    <category term="filter"/>
-    <apps:property name="label" value="Travel"/>
-    <apps:property name="hasTheWord" value="{from:booking.com from:trivago.com}"/>
-  </entry>
-  <entry>
-    <category term="filter"/>
-    <apps:property name="label" value="Shopping"/>
-    <apps:property name="hasTheWord" value="{from:amazon.com from:ebay.com}"/>
-  </entry>
-  <entry>
-    <category term="filter"/>
-    <apps:property name="label" value="Receipt"/>
-    <apps:property name="hasTheWord" value="(to:me from:paypal.com subject:receipt)"/>
-  </entry>
-</feed>
+```yaml
+version: 1
+filters:
+- label: Travel
+  match:
+    or:
+    - from: booking.com
+    - from: trivago.com
+- label: Receipt
+  match:
+    and:
+    - to: me
+    - from: paypal.com
+    - subject: receipt
 ```
 
 ## YAML format

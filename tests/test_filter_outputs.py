@@ -1,7 +1,5 @@
 import cli
-import expr
 import filter_config
-import gmail
 from fastapi.testclient import TestClient
 
 from expect import assert_matches_expected
@@ -29,103 +27,6 @@ class FakeUrlopen(object):
   def __call__(self, request):
     self.requests.append(request)
     return FakeApiResponse(self.body)
-
-
-def test_simple_single_rule_output(request):
-  filters = gmail.create()
-  filters.add_label("Travel", expr.ffrom("booking.com"))
-
-  assert_matches_expected(
-    request,
-    "simple-single-rule",
-    """
-    <?xml version="1.0" ?>
-    <feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">
-      <entry>
-        <category term="filter"/>
-        <apps:property name="label" value="Travel"/>
-        <apps:property name="hasTheWord" value="from:booking.com"/>
-      </entry>
-    </feed>
-    """,
-    filters.get_xml(),
-  )
-
-
-def test_complex_rules_output(request):
-  filters = gmail.create()
-
-  travel = expr.oor([
-    expr.ffrom("booking.com"),
-    expr.ffrom("trivago.com"),
-  ])
-  shopping = expr.oor([
-    expr.ffrom("amazon.com"),
-    expr.ffrom("ebay.com"),
-  ])
-  receipt = expr.aand([
-    expr.tto("me"),
-    expr.ffrom("paypal.com"),
-    expr.ssubject("receipt"),
-  ])
-
-  filters.add_label("Travel", travel)
-  filters.add_label("Shopping", shopping)
-  filters.add_label("Receipt", receipt)
-
-  assert_matches_expected(
-    request,
-    "complex-rules",
-    """
-    <?xml version="1.0" ?>
-    <feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">
-      <entry>
-        <category term="filter"/>
-        <apps:property name="label" value="Travel"/>
-        <apps:property name="hasTheWord" value="{from:booking.com from:trivago.com}"/>
-      </entry>
-      <entry>
-        <category term="filter"/>
-        <apps:property name="label" value="Shopping"/>
-        <apps:property name="hasTheWord" value="{from:amazon.com from:ebay.com}"/>
-      </entry>
-      <entry>
-        <category term="filter"/>
-        <apps:property name="label" value="Receipt"/>
-        <apps:property name="hasTheWord" value="(to:me from:paypal.com subject:receipt)"/>
-      </entry>
-    </feed>
-    """,
-    filters.get_xml(),
-  )
-
-
-def test_quoted_terms_output(request):
-  filters = gmail.create()
-
-  filters.add_label(
-    "Receipts",
-    expr.aand([
-      expr.ffrom("paypal.com"),
-      expr.ssubject("Receipt for your payment"),
-    ]),
-  )
-
-  assert_matches_expected(
-    request,
-    "quoted-terms",
-    """
-    <?xml version="1.0" ?>
-    <feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">
-      <entry>
-        <category term="filter"/>
-        <apps:property name="label" value="Receipts"/>
-        <apps:property name="hasTheWord" value="(from:paypal.com subject:&quot;Receipt for your payment&quot;)"/>
-      </entry>
-    </feed>
-    """,
-    filters.get_xml(),
-  )
 
 
 def test_yaml_config_output(request):

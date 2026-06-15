@@ -1,7 +1,7 @@
 [project]
 name = "gmail-filter-lib"
 version = "0.1.0"
-description = "Small library for generating Gmail filter XML from Python code."
+description = "Tools for converting, editing, and managing Gmail filters."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -19,7 +19,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-py-modules = ["cli", "expr", "filter_config", "gmail"]
+py-modules = ["cli", "filter_config"]
 
 [dependency-groups]
 dev = [
