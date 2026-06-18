@@ -654,23 +654,31 @@ def test_editor_serves_static_page(request):
     True
     True
     True
+    True
+    True
+    True
+    True
     """,
     "\n".join([
-      str("Gmail filters" in response.text),
+      str("Gmail Filter Editor" in response.text),
+      str('/static/favicon.svg' in response.text),
       str('/static/style.css' in response.text),
       str('/static/app.js' in response.text),
       str('id="auth-token" type="text"' in response.text),
       str('id="auth-status"' in response.text),
+      str('https://developers.google.com/oauthplayground/' in response.text),
       str('id="labels-tab"' in response.text),
       str('data-filter-chip="skip-inbox"' in response.text),
       str('data-sort-key="criteria"' in response.text),
       str('data-sort-key="label"' in response.text),
       str('id="filter-json"' in response.text),
+      str('id="json-status"' in response.text),
       str('id="basic-filter-editor"' in response.text),
       str('id="criteria-status"' in response.text),
       str('id="rendered-query"' in response.text),
       str('id="filter-label-select"' in response.text),
       str('id="filter-label-trigger"' in response.text),
+      str('id="discard-filter"' in response.text),
       str('id="action-status"' in response.text),
       str('placeholder="and:' in response.text),
       str('id="busy-overlay"' in response.text),
@@ -715,6 +723,11 @@ def test_editor_static_javascript_is_loaded(request):
     True
     True
     True
+    True
+    True
+    True
+    True
+    True
     """,
     "\n".join([
       str('fetch("/api/auth/token"' in response.text),
@@ -733,9 +746,14 @@ def test_editor_static_javascript_is_loaded(request):
       str("function actionChipHtml" in response.text),
       str("function matchesFilterChip" in response.text),
       str("function rememberUndo" in response.text),
-      str("function updatePendingDiff" in response.text),
+      str("function discardSelectedFilterChanges" in response.text),
+      str("function confirmDiscardFilterChanges" in response.text),
+      str("function validateRawFilterJson" in response.text),
+      str("function setJsonStatus" in response.text),
       str("function setCriteriaStatus" in response.text),
       str("function updateActionValidation" in response.text),
+      str("function hasFilterChanges" in response.text),
+      str("function normalizeFilterForDirty" in response.text),
       str("function criteriaDisplay" in response.text),
       str("function updateSaveState" in response.text),
       str("function setAuthStatus" in response.text),
@@ -763,10 +781,11 @@ def test_editor_api_filters_uses_gmail_list(request, monkeypatch):
   assert api_request.headers["Authorization"] == "Bearer access-token"
 
 
-def test_editor_api_token_can_be_updated_for_later_calls(monkeypatch):
+def test_editor_api_token_can_be_updated_for_later_calls(tmp_path, monkeypatch):
   fake_urlopen = FakeUrlopen('{"filter":[]}')
   monkeypatch.setattr(filter_config.urllib.request, "urlopen", fake_urlopen)
-  app = filter_config.create_editor_app("me", "old-token")
+  token_path = tmp_path / "oauth_token"
+  app = filter_config.create_editor_app("me", "old-token", token_path=token_path)
   client = TestClient(app)
 
   token_response = client.get("/api/auth/token")
@@ -776,6 +795,7 @@ def test_editor_api_token_can_be_updated_for_later_calls(monkeypatch):
   assert token_response.status_code == 200
   assert token_response.json() == {"token": "old-token"}
   assert update_response.status_code == 200
+  assert token_path.read_text() == "new-token\n"
   assert filters_response.status_code == 200
   api_request = fake_urlopen.requests[0]
   assert api_request.headers["Authorization"] == "Bearer new-token"

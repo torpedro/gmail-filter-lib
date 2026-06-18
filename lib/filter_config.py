@@ -502,9 +502,10 @@ def _prettify(elem):
   return reparsed.toprettyxml(indent="  ")
 
 
-def create_editor_app(user, token):
+def create_editor_app(user, token, token_path=None):
   app = FastAPI(title="Gmail Filter Editor")
   token_state = {"token": token}
+  token_file = Path(token_path) if token_path else None
   app.mount("/static", StaticFiles(directory=str(EDITOR_DIR)), name="static")
 
   @app.get("/", response_class=HTMLResponse)
@@ -522,6 +523,10 @@ def create_editor_app(user, token):
     if not new_token:
       return JSONResponse({"error": "Token is required"}, status_code=400, headers={"Cache-Control": "no-store"})
     token_state["token"] = new_token
+    if token_file:
+      if token_file.parent != Path("."):
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+      token_file.write_text("%s\n" % new_token)
     return JSONResponse({"ok": True}, headers={"Cache-Control": "no-store"})
 
   @app.get("/api/filters")

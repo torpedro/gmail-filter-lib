@@ -163,7 +163,7 @@ def _editor_main(argv, prog):
   token = _load_access_token(args)
 
   print("Serving Gmail filter editor at http://%s:%s/" % (args.host, args.port))
-  uvicorn.run(filter_config.create_editor_app(args.user, token), host=args.host, port=args.port)
+  uvicorn.run(filter_config.create_editor_app(args.user, token, token_path="oauth_token"), host=args.host, port=args.port)
 
 
 def _load_access_token(args):

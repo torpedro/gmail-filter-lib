@@ -3,16 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gmail filters</title>
+  <title>Gmail Filter Editor</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
   <header>
-    <h1>Gmail filters</h1>
+    <h1>Gmail Filter Editor</h1>
     <form id="auth-form" class="auth-form">
       <input id="auth-token" type="text" autocomplete="off" placeholder="OAuth token">
       <button id="save-token" type="submit">Update token</button>
+      <a class="auth-link" href="https://developers.google.com/oauthplayground/" target="_blank" rel="noopener noreferrer">OAuth Playground</a>
       <span id="auth-status" class="auth-status"></span>
     </form>
     <div class="toolbar">
@@ -92,17 +94,15 @@
           <div id="action-status" class="validation-status"></div>
         </div>
         <textarea id="filter-json" class="hidden" spellcheck="false"></textarea>
+        <div id="json-status" class="validation-status hidden"></div>
         <div class="form-actions">
           <button id="new-filter" type="button">New</button>
           <button id="save-filter" type="submit">Save</button>
+          <button id="discard-filter" type="button">Discard changes</button>
           <button id="delete-filter" class="danger" type="button">Delete</button>
           <button id="undo-filter" type="button">Undo</button>
         </div>
       </form>
-      <section id="filter-diff" class="diff-panel hidden">
-        <h3>Pending JSON diff</h3>
-        <pre id="filter-diff-text"></pre>
-      </section>
       <form id="label-form" class="label-form hidden">
         <input id="label-name" type="text" placeholder="Label name">
         <select id="label-list-visibility">

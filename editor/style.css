@@ -74,6 +74,17 @@ main {
   color: var(--text);
 }
 
+.auth-link {
+  color: var(--accent);
+  font-size: 12px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
 .auth-status {
   color: var(--muted);
   font-size: 12px;
@@ -511,29 +522,6 @@ pre {
   white-space: pre-wrap;
   word-break: break-word;
   flex: 1;
-}
-
-.diff-panel {
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: #15181e;
-}
-
-.diff-panel h3 {
-  margin: 0;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.diff-add {
-  color: #9ece6a;
-}
-
-.diff-remove {
-  color: var(--danger);
 }
 
 .busy-overlay {

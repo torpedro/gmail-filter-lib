@@ -40,6 +40,7 @@ const basicFilterMode = document.getElementById("basic-filter-mode");
 const rawFilterMode = document.getElementById("raw-filter-mode");
 const basicFilterEditor = document.getElementById("basic-filter-editor");
 const filterJson = document.getElementById("filter-json");
+const jsonStatus = document.getElementById("json-status");
 const filterQuery = document.getElementById("filter-query");
 const criteriaStatus = document.getElementById("criteria-status");
 const renderedQuery = document.getElementById("rendered-query");
@@ -51,10 +52,9 @@ const filterSkipInbox = document.getElementById("filter-skip-inbox");
 const actionStatus = document.getElementById("action-status");
 const newFilter = document.getElementById("new-filter");
 const saveFilter = document.getElementById("save-filter");
+const discardFilter = document.getElementById("discard-filter");
 const deleteFilter = document.getElementById("delete-filter");
 const undoFilter = document.getElementById("undo-filter");
-const filterDiff = document.getElementById("filter-diff");
-const filterDiffText = document.getElementById("filter-diff-text");
 const labelForm = document.getElementById("label-form");
 const labelName = document.getElementById("label-name");
 const labelListVisibility = document.getElementById("label-list-visibility");
@@ -230,6 +230,7 @@ function renderTabs() {
   rawFilterMode.classList.toggle("active", state.filterEditMode === "raw");
   basicFilterEditor.classList.toggle("hidden", state.filterEditMode !== "basic");
   filterJson.classList.toggle("hidden", state.filterEditMode !== "raw");
+  jsonStatus.classList.toggle("hidden", state.filterEditMode !== "raw");
   updateSaveState();
 }
 
@@ -329,8 +330,9 @@ function syncFilterForm(filter) {
   syncBasicFilterForm(filter);
   filterJson.value = JSON.stringify(filter, null, 2);
   if (state.filterEditMode === "basic") syncStructuredFilterPreview();
+  if (state.filterEditMode === "raw") validateRawFilterJson();
   deleteFilter.disabled = !filter.id;
-  updatePendingDiff();
+  updateSaveState();
 }
 
 function syncFilterLabelOptions(filter) {
@@ -382,7 +384,12 @@ function syncBasicFilterForm(filter) {
   filterSkipInbox.checked = includesValue(filter.action && filter.action.removeLabelIds, "INBOX");
 }
 
+function confirmDiscardFilterChanges() {
+  return !hasFilterChanges() || confirm("Discard unsaved filter changes?");
+}
+
 function selectFilter(filter, rerender = true) {
+  if (rerender && state.selectedFilter !== filter && !confirmDiscardFilterChanges()) return;
   state.selectedFilter = filter;
   state.selectedFilterId = filter && filter.id ? filter.id : null;
   if (rerender) render();
@@ -394,6 +401,7 @@ function selectLabel(label, rerender = true) {
 }
 
 function switchView(view) {
+  if (view !== state.view && state.view === "filters" && !confirmDiscardFilterChanges()) return;
   state.view = view;
   if (view === "labels" && !state.selectedLabel && state.labels[0]) state.selectedLabel = state.labels[0];
   if (view === "filters" && !state.selectedFilter && state.filters[0]) state.selectedFilter = state.filters[0];
@@ -588,6 +596,12 @@ function setActionStatus(message, className = "") {
   actionStatus.className = `validation-status ${className}`.trim();
 }
 
+function setJsonStatus(message, className = "") {
+  jsonStatus.textContent = message;
+  jsonStatus.className = `validation-status ${className}`.trim();
+  jsonStatus.classList.toggle("hidden", state.filterEditMode !== "raw");
+}
+
 function hasActionConfigured() {
   return state.selectedLabelIds.length > 0 || filterSkipInbox.checked;
 }
@@ -604,7 +618,56 @@ function updateActionValidation() {
 
 function updateSaveState() {
   if (state.view !== "filters") return;
-  saveFilter.disabled = state.filterEditMode === "basic" && (!state.criteriaValid || !state.actionValid);
+  const dirty = hasFilterChanges();
+  if (state.filterEditMode === "basic") {
+    saveFilter.disabled = !dirty || !state.criteriaValid || !state.actionValid;
+  } else {
+    saveFilter.disabled = !dirty || !validateRawFilterJson(false);
+  }
+  discardFilter.disabled = !dirty;
+}
+
+function hasFilterChanges() {
+  if (state.view !== "filters") return false;
+  const selected = normalizeFilterForDirty(state.selectedFilter || {});
+  try {
+    return stableJson(normalizeFilterForDirty(JSON.parse(filterJson.value || "{}"))) !== stableJson(selected);
+  } catch {
+    return filterJson.value.trim() !== JSON.stringify(state.selectedFilter || {}, null, 2).trim();
+  }
+}
+
+function normalizeFilterForDirty(filter) {
+  const copy = { ...filter };
+  delete copy.id;
+  return copy;
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function validateRawFilterJson(updateStatus = true) {
+  try {
+    const payload = JSON.parse(filterJson.value || "{}");
+    if (!payload.criteria) {
+      if (updateStatus) setJsonStatus("JSON must include criteria", "error");
+      return false;
+    }
+    if (!payload.action) {
+      if (updateStatus) setJsonStatus("JSON must include action", "error");
+      return false;
+    }
+    if (updateStatus) setJsonStatus("JSON valid", "ok");
+    return true;
+  } catch (error) {
+    if (updateStatus) setJsonStatus(error.message, "error");
+    return false;
+  }
 }
 
 function syncStructuredFilterPreview() {
@@ -635,7 +698,6 @@ function syncStructuredFilterPreview() {
     };
     filterJson.value = JSON.stringify(payload, null, 2);
     details.textContent = filterJson.value;
-    updatePendingDiff();
     updateSaveState();
   }).catch(() => {
     if (requestId === state.previewRequest) {
@@ -657,6 +719,7 @@ function switchFilterEditMode(mode) {
     }
   } else {
     syncStructuredFilterPreview();
+    validateRawFilterJson();
   }
   state.filterEditMode = mode;
   renderTabs();
@@ -705,6 +768,11 @@ async function deleteSelectedFilter() {
     state.view = "filters";
     render();
   });
+}
+
+function discardSelectedFilterChanges() {
+  setLabelDropdownOpen(false);
+  renderDetails();
 }
 
 async function saveSelectedLabel(event) {
@@ -771,33 +839,6 @@ function updateUndoState() {
   undoFilter.disabled = state.undoStack.length === 0;
 }
 
-function updatePendingDiff() {
-  const selected = state.selectedFilter;
-  if (!selected || !selected.id || !filterJson.value) {
-    filterDiff.classList.add("hidden");
-    filterDiffText.textContent = "";
-    return;
-  }
-  const before = JSON.stringify(selected, null, 2).split("\n");
-  const after = filterJson.value.split("\n");
-  const text = simpleDiff(before, after);
-  if (!text.trim()) {
-    filterDiff.classList.add("hidden");
-    filterDiffText.textContent = "";
-    return;
-  }
-  filterDiff.classList.remove("hidden");
-  filterDiffText.innerHTML = text;
-}
-
-function simpleDiff(before, after) {
-  if (before.join("\n") === after.join("\n")) return "";
-  const rows = [];
-  rows.push(...before.map((line) => `<span class="diff-remove">- ${escapeHtml(line)}</span>`));
-  rows.push(...after.map((line) => `<span class="diff-add">+ ${escapeHtml(line)}</span>`));
-  return rows.join("\n");
-}
-
 async function undoLastFilterChange() {
   const entry = state.undoStack.pop();
   if (!entry) return;
@@ -823,6 +864,7 @@ search.addEventListener("input", () => {
 });
 
 reload.addEventListener("click", () => {
+  if (!confirmDiscardFilterChanges()) return;
   loadAll().catch(showError);
 });
 
@@ -853,11 +895,13 @@ filtersTab.addEventListener("click", () => switchView("filters"));
 labelsTab.addEventListener("click", () => switchView("labels"));
 
 newLabel.addEventListener("click", () => {
+  if (state.view === "filters" && !confirmDiscardFilterChanges()) return;
   state.selectedLabel = {};
   switchView("labels");
 });
 
 newFilter.addEventListener("click", () => {
+  if (!confirmDiscardFilterChanges()) return;
   state.selectedFilter = {
     criteria: {
       query: "",
@@ -890,12 +934,18 @@ for (const input of [filterQuery, filterSkipInbox]) {
 }
 
 filterJson.addEventListener("input", () => {
-  if (state.filterEditMode === "raw") details.textContent = filterJson.value;
+  if (state.filterEditMode === "raw") {
+    details.textContent = filterJson.value;
+    validateRawFilterJson();
+    updateSaveState();
+  }
 });
 
 filterForm.addEventListener("submit", (event) => {
   saveSelectedFilter(event).catch(showError);
 });
+
+discardFilter.addEventListener("click", discardSelectedFilterChanges);
 
 deleteFilter.addEventListener("click", () => {
   deleteSelectedFilter().catch(showError);
