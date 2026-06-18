@@ -134,13 +134,16 @@ match DSL with nested `and`/`or` blocks, plus one applied label and skip-inbox
 independently, then reconstructs the Gmail API JSON. JSON mode edits the raw
 Gmail API filter object directly. Gmail does
 not expose a filter update method, so saving an existing filter creates the
-revised filter first and then deletes the old filter. User-created labels can
-be created, patched, and deleted. Gmail system labels are shown but should be
-treated as read-only. Gmail filter JSON does not include creation timestamps;
-the editor records local timestamps for filters created through the editor and
-shows those first. Other filters are sorted by filter ID descending as a
-convenience fallback, but Gmail does not document filter IDs as creation
-timestamps.
+revised filter first and then deletes the old filter. The editor confirms
+replace/delete operations, shows the generated JSON diff before replacement,
+and keeps a small local undo stack for recreating deleted or replaced filters.
+User-created labels can be created, patched, and deleted. Gmail system labels
+are shown but should be treated as read-only. Gmail filter JSON does not
+include creation timestamps; the editor records local timestamps for filters
+created through the editor and shows those first. Other filters are sorted by
+filter ID descending as a convenience fallback, but Gmail does not document
+filter IDs as creation timestamps. The filter list also supports quick chips,
+sortable columns, and preserving the selected filter across reloads.
 
 ### Getting an access token
 

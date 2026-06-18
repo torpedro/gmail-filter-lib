@@ -530,7 +530,7 @@ def create_editor_app(user, token):
       body = gmail_api_request("GET", "/users/%s/settings/filters" % _quote_path(user), token_state["token"])
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.post("/api/filters")
   async def create_filter(request: Request):
@@ -543,7 +543,7 @@ def create_editor_app(user, token):
       )
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.put("/api/filters/{filter_id}")
   async def replace_filter(filter_id: str, request: Request):
@@ -561,7 +561,7 @@ def create_editor_app(user, token):
       )
       return Response(content=created, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.delete("/api/filters/{filter_id}")
   def delete_filter(filter_id: str):
@@ -573,7 +573,7 @@ def create_editor_app(user, token):
       )
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.post("/api/match/parse")
   async def parse_match_endpoint(request: Request):
@@ -604,7 +604,7 @@ def create_editor_app(user, token):
       body = gmail_api_request("GET", "/users/%s/labels" % _quote_path(user), token_state["token"])
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.post("/api/labels")
   async def create_label(request: Request):
@@ -612,7 +612,7 @@ def create_editor_app(user, token):
       body = gmail_api_request("POST", "/users/%s/labels" % _quote_path(user), token_state["token"], await request.json())
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.patch("/api/labels/{label_id}")
   async def patch_label(label_id: str, request: Request):
@@ -625,7 +625,7 @@ def create_editor_app(user, token):
       )
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   @app.delete("/api/labels/{label_id}")
   def delete_label(label_id: str):
@@ -637,7 +637,7 @@ def create_editor_app(user, token):
       )
       return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
     except SystemExit as error:
-      return JSONResponse({"error": str(error)}, status_code=502, headers={"Cache-Control": "no-store"})
+      return _api_error_response(error)
 
   return app
 
@@ -646,6 +646,18 @@ def _filter_create_body(filter_config):
   body = dict(filter_config)
   body.pop("id", None)
   return body
+
+
+def _api_error_response(error):
+  message = str(error)
+  status_code = 502
+  try:
+    parsed = json.loads(message)
+    status_code = parsed.get("error", {}).get("code", status_code)
+  except ValueError:
+    if "401" in message or "UNAUTHENTICATED" in message:
+      status_code = 401
+  return JSONResponse({"error": message}, status_code=status_code, headers={"Cache-Control": "no-store"})
 
 
 def gmail_api_request(method, path, token, body=None):

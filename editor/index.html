@@ -13,6 +13,7 @@
     <form id="auth-form" class="auth-form">
       <input id="auth-token" type="text" autocomplete="off" placeholder="OAuth token">
       <button id="save-token" type="submit">Update token</button>
+      <span id="auth-status" class="auth-status"></span>
     </form>
     <div class="toolbar">
       <button id="filters-tab" class="tab active" type="button">Filters</button>
@@ -24,12 +25,20 @@
   </header>
   <main>
     <section id="filters-panel">
+      <div class="filter-chips">
+        <button class="chip active" data-filter-chip="all" type="button">All</button>
+        <button class="chip" data-filter-chip="skip-inbox" type="button">Skip inbox</button>
+        <button class="chip" data-filter-chip="has-label" type="button">Has label</button>
+        <button class="chip" data-filter-chip="no-label" type="button">No label</button>
+        <button class="chip" data-filter-chip="raw-query" type="button">Raw query</button>
+      </div>
       <table id="filters-table">
         <thead>
           <tr>
-            <th style="width: 28%">ID</th>
-            <th style="width: 42%">Criteria</th>
-            <th style="width: 30%">Action</th>
+            <th style="width: 24%"><button class="sort-button" data-sort-key="id" type="button">ID</button></th>
+            <th style="width: 34%"><button class="sort-button" data-sort-key="criteria" type="button">Criteria</button></th>
+            <th style="width: 22%"><button class="sort-button" data-sort-key="label" type="button">Label</button></th>
+            <th style="width: 20%"><button class="sort-button" data-sort-key="action" type="button">Action</button></th>
           </tr>
         </thead>
         <tbody id="filter-rows"></tbody>
@@ -62,22 +71,38 @@
             <span>Criteria</span>
             <textarea id="filter-query" spellcheck="false" placeholder="and:&#10;- from: example.com&#10;- subject: receipt"></textarea>
           </label>
+          <div id="criteria-status" class="validation-status"></div>
+          <div class="rendered-query">
+            <span>Rendered Gmail query</span>
+            <code id="rendered-query"></code>
+          </div>
           <label class="field-block">
             <span>Apply label</span>
-            <select id="filter-label"></select>
+            <div id="filter-label-select" class="custom-select">
+              <button id="filter-label-trigger" class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span id="filter-label-summary">No labels selected</span>
+              </button>
+              <div id="filter-label-options" class="custom-select-options hidden" role="listbox" aria-multiselectable="true"></div>
+            </div>
           </label>
           <label class="check-row">
             <input id="filter-skip-inbox" type="checkbox">
             <span>Skip inbox</span>
           </label>
+          <div id="action-status" class="validation-status"></div>
         </div>
         <textarea id="filter-json" class="hidden" spellcheck="false"></textarea>
         <div class="form-actions">
           <button id="new-filter" type="button">New</button>
           <button id="save-filter" type="submit">Save</button>
           <button id="delete-filter" class="danger" type="button">Delete</button>
+          <button id="undo-filter" type="button">Undo</button>
         </div>
       </form>
+      <section id="filter-diff" class="diff-panel hidden">
+        <h3>Pending JSON diff</h3>
+        <pre id="filter-diff-text"></pre>
+      </section>
       <form id="label-form" class="label-form hidden">
         <input id="label-name" type="text" placeholder="Label name">
         <select id="label-list-visibility">

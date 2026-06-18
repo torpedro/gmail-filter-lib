@@ -8,7 +8,15 @@ const state = {
   filterEditMode: "basic",
   matchYamlByCriteria: {},
   previewRequest: 0,
+  sortKey: "id",
+  sortDirection: "desc",
+  filterChip: "all",
+  selectedFilterId: null,
+  selectedLabelIds: [],
+  undoStack: readUndoStack(),
   query: "",
+  criteriaValid: false,
+  actionValid: false,
 };
 
 const filterRows = document.getElementById("filter-rows");
@@ -22,6 +30,7 @@ const search = document.getElementById("search");
 const reload = document.getElementById("reload");
 const authForm = document.getElementById("auth-form");
 const authToken = document.getElementById("auth-token");
+const authStatus = document.getElementById("auth-status");
 const filtersTab = document.getElementById("filters-tab");
 const labelsTab = document.getElementById("labels-tab");
 const filtersPanel = document.getElementById("filters-panel");
@@ -32,11 +41,20 @@ const rawFilterMode = document.getElementById("raw-filter-mode");
 const basicFilterEditor = document.getElementById("basic-filter-editor");
 const filterJson = document.getElementById("filter-json");
 const filterQuery = document.getElementById("filter-query");
-const filterLabel = document.getElementById("filter-label");
+const criteriaStatus = document.getElementById("criteria-status");
+const renderedQuery = document.getElementById("rendered-query");
+const filterLabelSelect = document.getElementById("filter-label-select");
+const filterLabelTrigger = document.getElementById("filter-label-trigger");
+const filterLabelSummary = document.getElementById("filter-label-summary");
+const filterLabelOptions = document.getElementById("filter-label-options");
 const filterSkipInbox = document.getElementById("filter-skip-inbox");
+const actionStatus = document.getElementById("action-status");
 const newFilter = document.getElementById("new-filter");
 const saveFilter = document.getElementById("save-filter");
 const deleteFilter = document.getElementById("delete-filter");
+const undoFilter = document.getElementById("undo-filter");
+const filterDiff = document.getElementById("filter-diff");
+const filterDiffText = document.getElementById("filter-diff-text");
 const labelForm = document.getElementById("label-form");
 const labelName = document.getElementById("label-name");
 const labelListVisibility = document.getElementById("label-list-visibility");
@@ -49,6 +67,8 @@ const deleteLabel = document.getElementById("delete-label");
 const busyOverlay = document.getElementById("busy-overlay");
 const busyTitle = document.getElementById("busy-title");
 const busyDetail = document.getElementById("busy-detail");
+const filterChips = Array.from(document.querySelectorAll("[data-filter-chip]"));
+const sortButtons = Array.from(document.querySelectorAll("[data-sort-key]"));
 
 function summarize(value) {
   if (!value || Object.keys(value).length === 0) return "";
@@ -64,12 +84,64 @@ function labelNameFor(id) {
   return label ? `${label.name} (${id})` : id;
 }
 
+function labelDisplayNameFor(id) {
+  const label = labelById().get(id);
+  return label ? label.name : id;
+}
+
+function isUserLabel(label) {
+  return label && label.type === "user";
+}
+
 function summarizeAction(action) {
   if (!action || Object.keys(action).length === 0) return "";
   const copy = { ...action };
   if (copy.addLabelIds) copy.addLabelIds = copy.addLabelIds.map(labelNameFor);
   if (copy.removeLabelIds) copy.removeLabelIds = copy.removeLabelIds.map(labelNameFor);
   return JSON.stringify(copy);
+}
+
+function actionChips(action) {
+  if (!action || Object.keys(action).length === 0) return "";
+  const chips = [];
+  for (const id of action.removeLabelIds || []) {
+    chips.push({ text: id === "INBOX" ? "Skip inbox" : `Remove ${labelNameFor(id)}`, kind: id === "INBOX" ? "skip" : "remove" });
+  }
+  if (action.forward) chips.push({ text: `Forward ${action.forward}`, kind: "forward" });
+  for (const [key, value] of Object.entries(action)) {
+    if (["addLabelIds", "removeLabelIds", "forward"].includes(key)) continue;
+    chips.push({ text: `${key}: ${Array.isArray(value) ? value.join(", ") : value}`, kind: "other" });
+  }
+  return chips.map(actionChipHtml).join("");
+}
+
+function labelActionChips(action) {
+  if (!action || !Array.isArray(action.addLabelIds)) return "";
+  return action.addLabelIds
+    .map((id) => actionChipHtml({ text: labelDisplayNameFor(id), title: id, kind: "label", label: labelById().get(id) }))
+    .join("");
+}
+
+function labelActionText(action) {
+  if (!action || !Array.isArray(action.addLabelIds)) return "";
+  return action.addLabelIds.map(labelNameFor).join(" ");
+}
+
+function actionChipHtml(chip) {
+  const title = chip.title ? ` title="${escapeHtml(chip.title)}"` : "";
+  if (chip.label && chip.label.color && chip.label.color.backgroundColor) {
+    const bg = escapeHtml(chip.label.color.backgroundColor);
+    const fg = escapeHtml(chip.label.color.textColor || "#ffffff");
+    return `<span class="action-chip ${chip.kind}"${title} style="background:${bg};border-color:${bg};color:${fg}">${escapeHtml(chip.text)}</span>`;
+  }
+  return `<span class="action-chip ${chip.kind}"${title}>${escapeHtml(chip.text)}</span>`;
+}
+
+function labelColorStyle(label) {
+  if (!label.color || !label.color.backgroundColor) return "";
+  const bg = escapeHtml(label.color.backgroundColor);
+  const fg = escapeHtml(label.color.textColor || "#ffffff");
+  return ` style="--label-bg:${bg};--label-fg:${fg}"`;
 }
 
 function matches(value) {
@@ -85,6 +157,26 @@ function readFilterCreatedAt() {
   }
 }
 
+function readUndoStack() {
+  try {
+    return JSON.parse(localStorage.getItem("gmail-filter-editor-undo") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function writeUndoStack() {
+  localStorage.setItem("gmail-filter-editor-undo", JSON.stringify(state.undoStack.slice(-10)));
+}
+
+function rememberUndo(kind, filter) {
+  if (!filter) return;
+  state.undoStack.push({ kind, filter, at: new Date().toISOString() });
+  state.undoStack = state.undoStack.slice(-10);
+  writeUndoStack();
+  updateUndoState();
+}
+
 function writeFilterCreatedAt() {
   localStorage.setItem("gmail-filter-editor-created-at", JSON.stringify(state.filterCreatedAt));
 }
@@ -96,23 +188,35 @@ function rememberFilterCreated(filter) {
 }
 
 function sortedFilters() {
-  return state.filters
+  const base = state.filters
     .map((filter, index) => ({ filter, index, createdAt: state.filterCreatedAt[filter.id] || "" }))
     .sort((left, right) => {
-      if (left.createdAt && right.createdAt) return right.createdAt.localeCompare(left.createdAt);
-      if (left.createdAt) return -1;
-      if (right.createdAt) return 1;
-      const idOrder = String(right.filter.id || "").localeCompare(String(left.filter.id || ""));
-      return idOrder || left.index - right.index;
+      let result;
+      if (state.sortKey === "criteria") {
+        result = summarize(left.filter.criteria).localeCompare(summarize(right.filter.criteria));
+      } else if (state.sortKey === "label") {
+        result = labelActionText(left.filter.action).localeCompare(labelActionText(right.filter.action));
+      } else if (state.sortKey === "action") {
+        result = summarizeAction(left.filter.action).localeCompare(summarizeAction(right.filter.action));
+      } else {
+        if (left.createdAt && right.createdAt) result = left.createdAt.localeCompare(right.createdAt);
+        else if (left.createdAt) result = 1;
+        else if (right.createdAt) result = -1;
+        else result = String(left.filter.id || "").localeCompare(String(right.filter.id || ""));
+      }
+      return (state.sortDirection === "desc" ? -result : result) || left.index - right.index;
     })
     .map((entry) => entry.filter);
+  return base;
 }
 
 function render() {
   renderTabs();
+  renderFilterChips();
   renderFilters();
   renderLabels();
   renderDetails();
+  updateUndoState();
 }
 
 function renderTabs() {
@@ -126,10 +230,11 @@ function renderTabs() {
   rawFilterMode.classList.toggle("active", state.filterEditMode === "raw");
   basicFilterEditor.classList.toggle("hidden", state.filterEditMode !== "basic");
   filterJson.classList.toggle("hidden", state.filterEditMode !== "raw");
+  updateSaveState();
 }
 
 function renderFilters() {
-  const visible = sortedFilters().filter(matches);
+  const visible = sortedFilters().filter(matches).filter(matchesFilterChip);
   filterRows.innerHTML = "";
   filterMessage.textContent = visible.length ? "" : "No filters";
   if (state.view === "filters") count.textContent = `${visible.length} of ${state.filters.length}`;
@@ -140,7 +245,8 @@ function renderFilters() {
     tr.innerHTML = `
       <td class="mono">${escapeHtml(filter.id || "")}</td>
       <td class="mono">${escapeHtml(summarize(filter.criteria))}</td>
-      <td class="mono">${escapeHtml(summarizeAction(filter.action))}</td>
+      <td>${labelActionChips(filter.action)}</td>
+      <td>${actionChips(filter.action)}</td>
     `;
     tr.addEventListener("click", () => selectFilter(filter));
     filterRows.appendChild(tr);
@@ -169,6 +275,20 @@ function renderLabels() {
   }
 
   if (state.view === "labels" && !state.selectedLabel && visible[0]) selectLabel(visible[0], false);
+}
+
+function renderFilterChips() {
+  for (const chip of filterChips) {
+    chip.classList.toggle("active", chip.dataset.filterChip === state.filterChip);
+  }
+}
+
+function matchesFilterChip(filter) {
+  if (state.filterChip === "skip-inbox") return includesValue(filter.action && filter.action.removeLabelIds, "INBOX");
+  if (state.filterChip === "has-label") return Array.isArray(filter.action && filter.action.addLabelIds) && filter.action.addLabelIds.length > 0;
+  if (state.filterChip === "no-label") return !Array.isArray(filter.action && filter.action.addLabelIds) || filter.action.addLabelIds.length === 0;
+  if (state.filterChip === "raw-query") return !!(filter.criteria && filter.criteria.query);
+  return true;
 }
 
 function renderDetails() {
@@ -210,16 +330,48 @@ function syncFilterForm(filter) {
   filterJson.value = JSON.stringify(filter, null, 2);
   if (state.filterEditMode === "basic") syncStructuredFilterPreview();
   deleteFilter.disabled = !filter.id;
+  updatePendingDiff();
 }
 
 function syncFilterLabelOptions(filter) {
-  const selected = firstValue(filter.action && filter.action.addLabelIds) || "";
-  const options = ['<option value="">No label</option>'];
-  for (const label of state.labels) {
-    options.push(`<option value="${escapeHtml(label.id)}">${escapeHtml(label.name || label.id)}</option>`);
+  state.selectedLabelIds = Array.isArray(filter.action && filter.action.addLabelIds) ? filter.action.addLabelIds.slice() : [];
+  renderFilterLabelOptions();
+}
+
+function renderFilterLabelOptions() {
+  const selectedLabels = state.selectedLabelIds.map(labelDisplayNameFor);
+  filterLabelSummary.textContent = selectedLabels.length ? selectedLabels.join(", ") : "No labels selected";
+  filterLabelOptions.innerHTML = state.labels
+    .filter(isUserLabel)
+    .map((label) => {
+      const selected = state.selectedLabelIds.includes(label.id);
+      const name = label.name || label.id;
+      return `
+        <button class="custom-select-option ${selected ? "selected" : ""}" type="button" role="option" aria-selected="${selected}" data-label-id="${escapeHtml(label.id)}" title="${escapeHtml(label.id)}"${labelColorStyle(label)}>
+          <span class="custom-check">${selected ? "✓" : ""}</span>
+          <span class="custom-label-swatch"></span>
+          <span>${escapeHtml(name)}</span>
+        </button>
+      `;
+    })
+    .join("") || '<div class="empty">No labels</div>';
+  for (const option of filterLabelOptions.querySelectorAll("[data-label-id]")) {
+    option.addEventListener("click", () => {
+      const labelId = option.dataset.labelId;
+      if (state.selectedLabelIds.includes(labelId)) {
+        state.selectedLabelIds = state.selectedLabelIds.filter((id) => id !== labelId);
+      } else {
+        state.selectedLabelIds.push(labelId);
+      }
+      renderFilterLabelOptions();
+      syncStructuredFilterPreview();
+    });
   }
-  filterLabel.innerHTML = options.join("");
-  filterLabel.value = selected;
+}
+
+function setLabelDropdownOpen(open) {
+  filterLabelOptions.classList.toggle("hidden", !open);
+  filterLabelTrigger.setAttribute("aria-expanded", String(open));
 }
 
 function syncBasicFilterForm(filter) {
@@ -232,6 +384,7 @@ function syncBasicFilterForm(filter) {
 
 function selectFilter(filter, rerender = true) {
   state.selectedFilter = filter;
+  state.selectedFilterId = filter && filter.id ? filter.id : null;
   if (rerender) render();
 }
 
@@ -303,6 +456,7 @@ async function saveAuthToken(event) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Token update failed");
+    setAuthStatus("Token updated", "ok");
     await loadAll();
   });
 }
@@ -343,7 +497,7 @@ function fallbackCriteriaYaml(criteria) {
 }
 
 async function renderMatchYaml(matchYaml) {
-  if (!matchYaml) return "";
+  if (!matchYaml) return { query: "", criteria: {} };
   const response = await fetch("/api/match/render", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -352,6 +506,14 @@ async function renderMatchYaml(matchYaml) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Criteria render failed");
   return data;
+}
+
+function criteriaDisplay(rendered) {
+  if (rendered.query) return rendered.query;
+  const criteria = rendered.criteria || {};
+  return Object.entries(criteria)
+    .map(([key, value]) => `${key}:${Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : value}`)
+    .join(" ");
 }
 
 async function loadAll() {
@@ -366,11 +528,11 @@ async function loadAll() {
     ]);
     const filtersData = await filtersResponse.json();
     const labelsData = await labelsResponse.json();
-    if (!filtersResponse.ok) throw new Error(filtersData.error || "Filter request failed");
-    if (!labelsResponse.ok) throw new Error(labelsData.error || "Label request failed");
+    if (!filtersResponse.ok) throw apiError(filtersData.error || "Filter request failed", filtersResponse.status);
+    if (!labelsResponse.ok) throw apiError(labelsData.error || "Label request failed", labelsResponse.status);
     state.filters = filtersData.filter || [];
     state.labels = labelsData.labels || [];
-    state.selectedFilter = null;
+    state.selectedFilter = state.filters.find((filter) => filter.id === state.selectedFilterId) || null;
     state.selectedLabel = null;
     render();
   });
@@ -402,10 +564,9 @@ async function filterPayload() {
 async function structuredFilterPayload() {
   const rendered = await renderMatchYaml(filterQuery.value.trim());
   const criteria = rendered.criteria || {};
-  const labelId = filterLabel.value;
   const action = {};
   if (!Object.keys(criteria).length) throw new Error("Criteria is required");
-  if (labelId) action.addLabelIds = [labelId];
+  if (state.selectedLabelIds.length) action.addLabelIds = state.selectedLabelIds.slice();
   if (filterSkipInbox.checked) action.removeLabelIds = ["INBOX"];
   if (Object.keys(action).length === 0) throw new Error("Choose a label or skip inbox");
   const payload = {
@@ -417,15 +578,56 @@ async function structuredFilterPayload() {
   return payload;
 }
 
+function setCriteriaStatus(message, className = "") {
+  criteriaStatus.textContent = message;
+  criteriaStatus.className = `validation-status ${className}`.trim();
+}
+
+function setActionStatus(message, className = "") {
+  actionStatus.textContent = message;
+  actionStatus.className = `validation-status ${className}`.trim();
+}
+
+function hasActionConfigured() {
+  return state.selectedLabelIds.length > 0 || filterSkipInbox.checked;
+}
+
+function updateActionValidation() {
+  state.actionValid = hasActionConfigured();
+  if (state.actionValid) {
+    setActionStatus("Action valid", "ok");
+  } else {
+    setActionStatus("Choose a label or skip inbox", "error");
+  }
+  updateSaveState();
+}
+
+function updateSaveState() {
+  if (state.view !== "filters") return;
+  saveFilter.disabled = state.filterEditMode === "basic" && (!state.criteriaValid || !state.actionValid);
+}
+
 function syncStructuredFilterPreview() {
   if (state.filterEditMode !== "basic") return;
   const requestId = ++state.previewRequest;
+  state.criteriaValid = false;
+  updateActionValidation();
+  setCriteriaStatus("Validating criteria", "");
+  renderedQuery.textContent = "";
+  updateSaveState();
   renderMatchYaml(filterQuery.value.trim()).then((rendered) => {
     if (requestId !== state.previewRequest || state.filterEditMode !== "basic") return;
     const criteria = rendered.criteria || {};
-    const labelId = filterLabel.value;
+    state.criteriaValid = Object.keys(criteria).length > 0;
+    if (state.criteriaValid) {
+      setCriteriaStatus("Criteria valid", "ok");
+      renderedQuery.textContent = criteriaDisplay(rendered);
+    } else {
+      setCriteriaStatus("Criteria is required", "error");
+      renderedQuery.textContent = "";
+    }
     const action = {};
-    if (labelId) action.addLabelIds = [labelId];
+    if (state.selectedLabelIds.length) action.addLabelIds = state.selectedLabelIds.slice();
     if (filterSkipInbox.checked) action.removeLabelIds = ["INBOX"];
     const payload = {
       criteria,
@@ -433,8 +635,16 @@ function syncStructuredFilterPreview() {
     };
     filterJson.value = JSON.stringify(payload, null, 2);
     details.textContent = filterJson.value;
+    updatePendingDiff();
+    updateSaveState();
   }).catch(() => {
-    if (requestId === state.previewRequest) details.textContent = filterJson.value;
+    if (requestId === state.previewRequest) {
+      state.criteriaValid = false;
+      setCriteriaStatus("Criteria YAML is invalid", "error");
+      renderedQuery.textContent = "";
+      details.textContent = filterJson.value;
+      updateSaveState();
+    }
   });
 }
 
@@ -456,6 +666,7 @@ async function saveSelectedFilter(event) {
   event.preventDefault();
   const payload = await filterPayload();
   const selected = state.selectedFilter;
+  if (selected && selected.id && !confirm("Replace this filter? Gmail will create a new filter and then delete the old one.")) return;
   return withBusy(
     selected && selected.id ? "Replacing filter" : "Creating filter",
     selected && selected.id ? `Creating replacement, then deleting ${selected.id}` : "Posting new filter JSON",
@@ -466,8 +677,10 @@ async function saveSelectedFilter(event) {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Filter save failed");
+      if (!response.ok) throw apiError(data.error || "Filter save failed", response.status);
+      if (selected && selected.id) rememberUndo("replace", selected);
       rememberFilterCreated(data);
+      state.selectedFilterId = data.id || null;
       await loadAll();
       state.view = "filters";
       state.selectedFilter = state.filters.find((filter) => filter.id === data.id) || data;
@@ -479,12 +692,15 @@ async function saveSelectedFilter(event) {
 async function deleteSelectedFilter() {
   const selected = state.selectedFilter;
   if (!selected || !selected.id) return;
+  if (!confirm("Delete this filter? It can only be restored by recreating it.")) return;
   return withBusy("Deleting filter", selected.id, async () => {
     const response = await fetch(`/api/filters/${encodeURIComponent(selected.id)}`, { method: "DELETE" });
     if (!response.ok) {
       const data = await response.json();
-      throw new Error(data.error || "Filter delete failed");
+      throw apiError(data.error || "Filter delete failed", response.status);
     }
+    rememberUndo("delete", selected);
+    state.selectedFilterId = null;
     await loadAll();
     state.view = "filters";
     render();
@@ -531,12 +747,74 @@ async function deleteSelectedLabel() {
 }
 
 function showError(error) {
+  if (error && error.status === 401) setAuthStatus("Auth failed", "error");
   filterRows.innerHTML = "";
   labelRows.innerHTML = "";
   filterMessage.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
   labelMessage.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
   count.textContent = "";
   details.textContent = "{}";
+}
+
+function apiError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function setAuthStatus(message, className = "") {
+  authStatus.textContent = message;
+  authStatus.className = `auth-status ${className}`.trim();
+}
+
+function updateUndoState() {
+  undoFilter.disabled = state.undoStack.length === 0;
+}
+
+function updatePendingDiff() {
+  const selected = state.selectedFilter;
+  if (!selected || !selected.id || !filterJson.value) {
+    filterDiff.classList.add("hidden");
+    filterDiffText.textContent = "";
+    return;
+  }
+  const before = JSON.stringify(selected, null, 2).split("\n");
+  const after = filterJson.value.split("\n");
+  const text = simpleDiff(before, after);
+  if (!text.trim()) {
+    filterDiff.classList.add("hidden");
+    filterDiffText.textContent = "";
+    return;
+  }
+  filterDiff.classList.remove("hidden");
+  filterDiffText.innerHTML = text;
+}
+
+function simpleDiff(before, after) {
+  if (before.join("\n") === after.join("\n")) return "";
+  const rows = [];
+  rows.push(...before.map((line) => `<span class="diff-remove">- ${escapeHtml(line)}</span>`));
+  rows.push(...after.map((line) => `<span class="diff-add">+ ${escapeHtml(line)}</span>`));
+  return rows.join("\n");
+}
+
+async function undoLastFilterChange() {
+  const entry = state.undoStack.pop();
+  if (!entry) return;
+  writeUndoStack();
+  updateUndoState();
+  return withBusy("Restoring filter", entry.filter.id || "previous filter", async () => {
+    const response = await fetch("/api/filters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry.filter),
+    });
+    const data = await response.json();
+    if (!response.ok) throw apiError(data.error || "Filter restore failed", response.status);
+    rememberFilterCreated(data);
+    state.selectedFilterId = data.id || null;
+    await loadAll();
+  });
 }
 
 search.addEventListener("input", () => {
@@ -547,6 +825,25 @@ search.addEventListener("input", () => {
 reload.addEventListener("click", () => {
   loadAll().catch(showError);
 });
+
+for (const chip of filterChips) {
+  chip.addEventListener("click", () => {
+    state.filterChip = chip.dataset.filterChip;
+    render();
+  });
+}
+
+for (const button of sortButtons) {
+  button.addEventListener("click", () => {
+    if (state.sortKey === button.dataset.sortKey) {
+      state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      state.sortKey = button.dataset.sortKey;
+      state.sortDirection = "asc";
+    }
+    render();
+  });
+}
 
 authForm.addEventListener("submit", (event) => {
   saveAuthToken(event).catch(showError);
@@ -575,7 +872,19 @@ newFilter.addEventListener("click", () => {
 basicFilterMode.addEventListener("click", () => switchFilterEditMode("basic"));
 rawFilterMode.addEventListener("click", () => switchFilterEditMode("raw"));
 
-for (const input of [filterQuery, filterLabel, filterSkipInbox]) {
+filterLabelTrigger.addEventListener("click", () => {
+  setLabelDropdownOpen(filterLabelOptions.classList.contains("hidden"));
+});
+
+document.addEventListener("click", (event) => {
+  if (!filterLabelSelect.contains(event.target)) setLabelDropdownOpen(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setLabelDropdownOpen(false);
+});
+
+for (const input of [filterQuery, filterSkipInbox]) {
   input.addEventListener("input", syncStructuredFilterPreview);
   input.addEventListener("change", syncStructuredFilterPreview);
 }
@@ -590,6 +899,10 @@ filterForm.addEventListener("submit", (event) => {
 
 deleteFilter.addEventListener("click", () => {
   deleteSelectedFilter().catch(showError);
+});
+
+undoFilter.addEventListener("click", () => {
+  undoLastFilterChange().catch(showError);
 });
 
 labelForm.addEventListener("submit", (event) => {

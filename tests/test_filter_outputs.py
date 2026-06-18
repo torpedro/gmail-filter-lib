@@ -645,15 +645,33 @@ def test_editor_serves_static_page(request):
     True
     True
     True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
     """,
     "\n".join([
       str("Gmail filters" in response.text),
       str('/static/style.css' in response.text),
       str('/static/app.js' in response.text),
       str('id="auth-token" type="text"' in response.text),
+      str('id="auth-status"' in response.text),
       str('id="labels-tab"' in response.text),
+      str('data-filter-chip="skip-inbox"' in response.text),
+      str('data-sort-key="criteria"' in response.text),
+      str('data-sort-key="label"' in response.text),
       str('id="filter-json"' in response.text),
       str('id="basic-filter-editor"' in response.text),
+      str('id="criteria-status"' in response.text),
+      str('id="rendered-query"' in response.text),
+      str('id="filter-label-select"' in response.text),
+      str('id="filter-label-trigger"' in response.text),
+      str('id="action-status"' in response.text),
       str('placeholder="and:' in response.text),
       str('id="busy-overlay"' in response.text),
     ]),
@@ -683,6 +701,20 @@ def test_editor_static_javascript_is_loaded(request):
     True
     True
     True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
+    True
     """,
     "\n".join([
       str('fetch("/api/auth/token"' in response.text),
@@ -693,8 +725,22 @@ def test_editor_static_javascript_is_loaded(request):
       str('fetch("/api/match/render"' in response.text),
       str('fetch(selected && selected.id ? `/api/filters/${encodeURIComponent(selected.id)}` : "/api/filters"' in response.text),
       str("function structuredFilterPayload()" in response.text),
+      str("function actionChips" in response.text),
+      str("function labelActionChips" in response.text),
+      str("function labelDisplayNameFor" in response.text),
+      str("function isUserLabel" in response.text),
+      str("function labelColorStyle" in response.text),
+      str("function actionChipHtml" in response.text),
+      str("function matchesFilterChip" in response.text),
+      str("function rememberUndo" in response.text),
+      str("function updatePendingDiff" in response.text),
+      str("function setCriteriaStatus" in response.text),
+      str("function updateActionValidation" in response.text),
+      str("function criteriaDisplay" in response.text),
+      str("function updateSaveState" in response.text),
+      str("function setAuthStatus" in response.text),
       str("function sortedFilters()" in response.text),
-      str('String(right.filter.id || "").localeCompare(String(left.filter.id || ""))' in response.text),
+      str('String(left.filter.id || "").localeCompare(String(right.filter.id || ""))' in response.text),
       str("async function withBusy" in response.text),
       str("function render()" in response.text),
     ]),
